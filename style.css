@@ -1,0 +1,109 @@
+body {
+    margin: 0;
+    overflow: hidden;
+    background: radial-gradient(circle at top, #2c003e, #0a001a);
+    font-family: "Microsoft YaHei", sans-serif;
+    position: relative;
+}
+body::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        radial-gradient(#fff 1px, transparent 1px),
+        radial-gradient(#fff 1px, transparent 1px);
+    background-size: 50px 50px;
+    background-position: 0 0, 25px 25px;
+    opacity: 0.2;
+    pointer-events: none;
+}
+
+/* 闪光标题（响应式） */
+#title {
+    position: absolute;
+    top: 2vw;
+    width: 100%;
+    text-align: center;
+    font-size: 5vw;
+    color: #fff;
+    text-shadow: 0 0 10px #ff7bff, 0 0 25px #ff3bff;
+    animation: glowTitle 2s infinite alternate;
+}
+@keyframes glowTitle {
+    from { opacity: 0.6; text-shadow: 0 0 10px #ffb7ff; }
+    to   { opacity: 1; text-shadow: 0 0 25px #ff55ff; }
+}
+
+/* 音乐提示弹窗（半透明+圆角） */
+#musicTip {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 3vw 6vw;
+    border-radius: 20px;
+    background: rgba(0, 0, 0, 0.7);
+    color: #fff;
+    font-size: 4vw;
+    text-align: center;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 0 20px rgba(255, 123, 255, 0.5);
+    z-index: 9999;
+    pointer-events: none; /* 不遮挡点击事件 */
+    transition: opacity 0.5s ease;
+}
+
+/* 祝福弹窗（响应式+优化） */
+.popup {
+    position: absolute;
+    padding: 2vw 3vw;
+    border-radius: 12px;
+    font-size: 3.5vw;
+    color: #fff;
+    animation: floatUp 4s ease-out forwards;
+    backdrop-filter: blur(6px);
+    background: linear-gradient(45deg, #ff71c4aa, #7a5bffcc);
+    box-shadow: 0 0 15px #fff;
+    max-width: 80%; 
+    word-wrap: break-word;
+    pointer-events: none;
+}
+@keyframes floatUp {
+    from { opacity: 0; transform: translateY(40px) scale(0.9); }
+    10%  { opacity: 1; }
+    to   { opacity: 0; transform: translateY(-140px) scale(1.15); }
+}
+
+/* 头像漂浮（响应式） */
+.head {
+    position: absolute;
+    width: 12vw;
+    height: 12vw;
+    max-width: 80px;
+    max-height: 80px;
+    border-radius: 50%;
+    object-fit: cover;
+    animation: floatHead 10s linear infinite;
+    box-shadow: 0 0 10px #fff;
+    pointer-events: none;
+}
+@keyframes floatHead {
+    from { transform: translateY(0px); }
+    to   { transform: translateY(-100vh); }
+}
+
+/* 点击特效（小烟花/爱心） */
+.click-effect {
+    position: absolute;
+    pointer-events: none;
+    z-index: 999;
+    animation: clickEffect 1s ease-out forwards;
+}
+@keyframes clickEffect {
+    0% { opacity: 1; transform: scale(0); }
+    50% { opacity: 1; transform: scale(1.2); }
+    100% { opacity: 0; transform: scale(0); }
+}
