@@ -41,8 +41,7 @@ function popup() {
     setTimeout(() => div.remove(), 4000);
 }
 let popupTimer = setInterval(popup, 2000);
-
-// ========== 高性能+炫酷烟花核心（更快频率+更大范围） ==========
+// ========== 移动端优化版烟花核心 ==========
 const canvas = document.getElementById("fireworks");
 const ctx = canvas.getContext("2d");
 let w, h;
@@ -55,201 +54,109 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-// 设备检测与性能参数（调整后：更快、更多粒子、更大范围）
+// 检测是否为移动端（用于动态调整性能参数）
 const isMobile = /Android|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent);
-const config = {
-    particleCount: isMobile ? 50 : 70, // 爆炸粒子数：移动端50个（更密集）
-    autoInterval: isMobile ? 800 : 600, // 自动频率：移动端800ms（更快）
-    maxParticles: isMobile ? 250 : 400, // 最大粒子数：适度增加
-    fps: isMobile ? 30 : 60, // 帧率不变，保证流畅
-    gravity: isMobile ? 0.03 : 0.05 // 重力稍增，粒子下落更自然
-};
-const FRAME_INTERVAL = 1000 / config.fps;
 
-// 烟花音效（可选）
-const fireworkSound = document.getElementById("fireworkSound");
-const playSound = () => {
-    if (fireworkSound) {
-        fireworkSound.currentTime = 0;
-        fireworkSound.play().catch(() => {}); // 移动端交互后才能播放，失败不影响
-    }
-};
-
-// 烟花类型：圆形/心形/星形
-const FIREWORK_TYPES = ['circle', 'heart', 'star'];
-
-// 升空轨迹类（调整爆炸高度：更大范围）
-class FireworkTrail {
+// 烟花粒子类（移动端轻量化）
+class FireworkParticle {
     constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.targetY = Math.random() * h * 0.6; // 爆炸高度扩大到屏幕60%处
-        this.speed = Math.random() * 3 + 2;
+        this.angle = Math.random() * Math.PI * 2;
+        // 移动端减少粒子速度，降低计算量
+        this.speed = isMobile ? Math.random() * 4 + 1 : Math.random() * 6 + 3;
+        this.gravity = isMobile ? 0.03 : 0.05; // 移动端降低重力计算
+        this.vx = Math.cos(this.angle) * this.speed;
+        this.vy = Math.sin(this.angle) * this.speed;
         this.alpha = 1;
-        this.color = `rgb(${Math.floor(Math.random()*255)},${Math.floor(Math.random()*200)},${Math.floor(Math.random()*255)})`;
+        this.decay = isMobile ? Math.random() * 0.02 + 0.01 : Math.random() * 0.015 + 0.005;
+        this.r = Math.floor(Math.random() * 255);
+        this.g = Math.floor(Math.random() * 200);
+        this.b = Math.floor(Math.random() * 255);
+        this.size = isMobile ? Math.random() * 3 + 1 : Math.random() * 4 + 2; // 移动端粒子更小
     }
     update() {
-        this.y -= this.speed; // 向上移动
-        this.alpha -= 0.005;
-        return this.y > this.targetY; // 未到爆炸高度返回true
+        this.vy += this.gravity;
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+        this.alpha -= this.decay;
     }
     draw() {
+        if (this.alpha <= 0) return; // 提前跳过透明粒子，减少绘制
         ctx.save();
         ctx.globalAlpha = this.alpha;
         ctx.beginPath();
-        ctx.fillStyle = this.color;
-        ctx.arc(this.x, this.y, 2, 0, Math.PI * 2);
+        const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
+        gradient.addColorStop(0, `rgb(${this.r},${this.g},${this.b})`);
+        gradient.addColorStop(1, `rgba(${this.r},${this.g},${this.b},0)`);
+        ctx.fillStyle = gradient;
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
     }
 }
 
-// 爆炸粒子类（调整爆炸速度：飞得更远）
-class FireworkParticle {
-    constructor(x, y, type, baseColor) {
-        this.x = x;
-        this.y = y;
-        this.angle = Math.random() * Math.PI * 2;
-        this.speed = Math.random() * config.particleCount/8 + 1.5; // 粒子速度提升，飞更远
-        this.vx = Math.cos(this.angle) * this.speed;
-        this.vy = Math.sin(this.angle) * this.speed + config.gravity;
-        this.alpha = 1;
-        this.decay = Math.random() * 0.015 + 0.005;
-        // 渐变颜色：从亮到暗
-        this.r = parseInt(baseColor.split(',')[0].replace('rgb(', ''));
-        this.g = parseInt(baseColor.split(',')[1]);
-        this.b = parseInt(baseColor.split(',')[2].replace(')', ''));
-        this.size = Math.random() * 3 + 1;
-        this.type = type; // 烟花形状
-    }
-    update() {
-        this.x += this.vx;
-        this.y += this.vy;
-        this.vx *= 0.97;
-        this.vy *= 0.97;
-        this.alpha -= this.decay;
-        // 颜色变暗
-        this.r = Math.max(0, this.r - 2);
-        this.g = Math.max(0, this.g - 2);
-        this.b = Math.max(0, this.b - 2);
-    }
-    draw() {
-        if (this.alpha <= 0) return;
-        ctx.save();
-        ctx.globalAlpha = this.alpha;
-        ctx.fillStyle = `rgb(${this.r},${this.g},${this.b})`;
-        
-        // 绘制不同形状
-        switch (this.type) {
-            case 'circle':
-                ctx.beginPath();
-                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
-                ctx.fill();
-                break;
-            case 'heart': // 简易心形
-                ctx.beginPath();
-                ctx.moveTo(this.x, this.y + this.size);
-                ctx.bezierCurveTo(
-                    this.x - this.size, this.y - this.size,
-                    this.x + this.size, this.y - this.size,
-                    this.x, this.y + this.size
-                );
-                ctx.fill();
-                break;
-            case 'star': // 简易星形
-                ctx.beginPath();
-                for (let i = 0; i < 5; i++) {
-                    const angle = (i * 2 * Math.PI / 5) - Math.PI / 2;
-                    const x = this.x + Math.cos(angle) * this.size;
-                    const y = this.y + Math.sin(angle) * this.size;
-                    i % 2 === 0 ? ctx.lineTo(x, y) : ctx.quadraticCurveTo(this.x, this.y, x, y);
-                }
-                ctx.closePath();
-                ctx.fill();
-                break;
-        }
-        ctx.restore();
-    }
-}
+let fireworks = [];
+// 限制粒子数组最大长度（核心：防止内存堆积）
+const MAX_PARTICLES = isMobile ? 200 : 400; 
 
-// 烟花池：管理升空轨迹和爆炸粒子
-let trails = []; // 升空轨迹
-let particles = []; // 爆炸粒子
-
-// 创建完整烟花（调整初始位置：更靠近屏幕底部）
+// 创建烟花（自动+点击）
 function createFirework(x, y) {
-    // 随机烟花形状
-    const type = FIREWORK_TYPES[Math.floor(Math.random() * FIREWORK_TYPES.length)];
-    // 初始Y坐标调整为95%高度，更靠近底部
-    const trail = new FireworkTrail(x || Math.random() * w, y || Math.random() * h * 0.95);
-    trails.push(trail);
-    // 播放音效
-    playSound();
-
-    // 监听升空轨迹，到达高度后生成爆炸粒子
-    const checkTrail = () => {
-        const index = trails.indexOf(trail);
-        if (index === -1) return;
-        if (!trail.update()) { // 到达爆炸高度
-            // 生成爆炸粒子
-            const baseColor = trail.color;
-            for (let i = 0; i < config.particleCount; i++) {
-                particles.push(new FireworkParticle(trail.x, trail.y, type, baseColor));
-            }
-            trails.splice(index, 1); // 移除升空轨迹
-            // 限制粒子总数
-            if (particles.length > config.maxParticles) {
-                particles = particles.slice(-config.maxParticles);
-            }
-        } else {
-            requestAnimationFrame(checkTrail);
-        }
-    };
-    checkTrail();
+    // 移动端减少粒子数量：从80个降到40个
+    const particleCount = isMobile ? 40 : 80;
+    for (let i = 0; i < particleCount; i++) {
+        fireworks.push(new FireworkParticle(x, y));
+    }
+    // 超出最大粒子数，直接截断旧粒子（强制清理）
+    if (fireworks.length > MAX_PARTICLES) {
+        fireworks = fireworks.slice(-MAX_PARTICLES);
+    }
 }
 
-// 自动生成烟花（更快频率）
+// 自动生成烟花：移动端降低频率（从800ms→1200ms）
+const autoFireworkInterval = isMobile ? 1200 : 800;
 setInterval(() => {
-    createFirework();
-}, config.autoInterval);
+    createFirework(Math.random() * w, Math.random() * h * 0.6);
+}, autoFireworkInterval);
 
-// 动画循环（帧率节流+高性能渲染）
+// 动画循环（优化渲染：减少画布重绘消耗）
 let lastFrameTime = 0;
+// 移动端限制帧率（60→30帧，降低CPU消耗）
+const TARGET_FPS = isMobile ? 30 : 60;
+const FRAME_INTERVAL = 1000 / TARGET_FPS;
+
 function animateFireworks(timestamp) {
+    // 帧率节流：只在达到目标间隔时渲染
     if (timestamp - lastFrameTime < FRAME_INTERVAL) {
         requestAnimationFrame(animateFireworks);
         return;
     }
     lastFrameTime = timestamp;
 
-    // 清画布（半透明保留轨迹，移动端降低透明度减少消耗）
-    ctx.fillStyle = isMobile ? "rgba(0,0,0,0.25)" : "rgba(0,0,0,0.15)";
+    // 移动端降低遮罩不透明度，减少合成消耗
+    ctx.fillStyle = isMobile ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.15)";
     ctx.fillRect(0, 0, w, h);
-
-    // 绘制升空轨迹
-    trails.forEach(trail => {
-        trail.draw();
-    });
-
-    // 绘制爆炸粒子（反向遍历，快速清理）
-    for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
+    
+    // 反向遍历+批量清理（比正向遍历快，减少数组操作）
+    for (let i = fireworks.length - 1; i >= 0; i--) {
+        const p = fireworks[i];
         p.update();
         p.draw();
         if (p.alpha <= 0) {
-            particles.splice(i, 1);
+            fireworks.splice(i, 1); // 立即移除透明粒子
         }
     }
-
     requestAnimationFrame(animateFireworks);
 }
-animateFireworks(0);
 
 // ========== 点击/触摸特效（小烟花+爱心） ==========
 function createClickEffect(x, y) {
-    // 点击位置生成烟花
+    // 1. 小烟花特效（核心）
     createFirework(x, y);
-    // 保留原有表情特效
+    
+    // 2. 额外爱心/星星特效（可选）
     const effects = ["❤️", "✨", "🎆", "🌟", "🎇"];
     const effect = document.createElement("div");
     effect.className = "click-effect";
@@ -276,12 +183,12 @@ const headUrls = [
 ];
 let usedHeadIndexes = [];
 function createHead() {
-    if (headUrls.length === 0) return;
+    if(headUrls.length === 0) return;
     let randomIndex;
     do {
         randomIndex = Math.floor(Math.random()*headUrls.length);
-    } while (usedHeadIndexes.includes(randomIndex));
-    if (usedHeadIndexes.length >= headUrls.length) usedHeadIndexes = [];
+    } while (usedHeadIndexes.includes(randomIndex) && usedHeadIndexes.length < headUrls.length);
+    if(usedHeadIndexes.length >= headUrls.length) usedHeadIndexes = [];
     usedHeadIndexes.push(randomIndex);
 
     const img = document.createElement("img");
@@ -295,7 +202,7 @@ function createHead() {
 }
 setInterval(createHead, 2000);
 
-// ========== 背景音乐（单次播放+弹窗消失） ==========
+// ========== 背景音乐（核心修改：单次播放+弹窗消失） ==========
 const music = document.getElementById("bgm");
 const musicTip = document.getElementById("musicTip");
 let isMusicInitiated = false; // 标记是否首次触发播放
