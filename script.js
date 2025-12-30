@@ -150,6 +150,7 @@ function animateFireworks(timestamp) {
     }
     requestAnimationFrame(animateFireworks);
 }
+animateFireworks(0); // 启动烟花动画
 
 // ========== 点击/触摸特效（小烟花+爱心） ==========
 function createClickEffect(x, y) {
