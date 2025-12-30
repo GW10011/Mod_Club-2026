@@ -42,7 +42,7 @@ function popup() {
 }
 let popupTimer = setInterval(popup, 2000);
 
-// ========== 豪华烟花核心（修复+升级） ==========
+// ========== 移动端优化版烟花核心 ==========
 const canvas = document.getElementById("fireworks");
 const ctx = canvas.getContext("2d");
 let w, h;
@@ -55,40 +55,40 @@ function resize() {
 resize();
 window.addEventListener("resize", resize);
 
-// 烟花粒子类（豪华样式）
+// 检测是否为移动端（用于动态调整性能参数）
+const isMobile = /Android|iPhone|iPad|iPod|BlackBerry/i.test(navigator.userAgent);
+
+// 烟花粒子类（移动端轻量化）
 class FireworkParticle {
     constructor(x, y) {
         this.x = x;
         this.y = y;
         this.angle = Math.random() * Math.PI * 2;
-        this.speed = Math.random() * 6 + 3; // 粒子速度
-        this.gravity = 0.05; // 重力
+        // 移动端减少粒子速度，降低计算量
+        this.speed = isMobile ? Math.random() * 4 + 1 : Math.random() * 6 + 3;
+        this.gravity = isMobile ? 0.03 : 0.05; // 移动端降低重力计算
         this.vx = Math.cos(this.angle) * this.speed;
         this.vy = Math.sin(this.angle) * this.speed;
         this.alpha = 1;
-        this.decay = Math.random() * 0.015 + 0.005; // 衰减速度
-        // 随机渐变颜色
+        this.decay = isMobile ? Math.random() * 0.02 + 0.01 : Math.random() * 0.015 + 0.005;
         this.r = Math.floor(Math.random() * 255);
         this.g = Math.floor(Math.random() * 200);
         this.b = Math.floor(Math.random() * 255);
-        this.size = Math.random() * 4 + 2; // 粒子大小
+        this.size = isMobile ? Math.random() * 3 + 1 : Math.random() * 4 + 2; // 移动端粒子更小
     }
     update() {
-        // 加入重力效果
         this.vy += this.gravity;
         this.x += this.vx;
         this.y += this.vy;
-        // 速度衰减
         this.vx *= 0.98;
         this.vy *= 0.98;
-        // 透明度衰减
         this.alpha -= this.decay;
     }
     draw() {
+        if (this.alpha <= 0) return; // 提前跳过透明粒子，减少绘制
         ctx.save();
         ctx.globalAlpha = this.alpha;
         ctx.beginPath();
-        // 圆形粒子+渐变
         const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size);
         gradient.addColorStop(0, `rgb(${this.r},${this.g},${this.b})`);
         gradient.addColorStop(1, `rgba(${this.r},${this.g},${this.b},0)`);
@@ -100,36 +100,58 @@ class FireworkParticle {
 }
 
 let fireworks = [];
+// 限制粒子数组最大长度（核心：防止内存堆积）
+const MAX_PARTICLES = isMobile ? 200 : 400; 
+
 // 创建烟花（自动+点击）
 function createFirework(x, y) {
-    // 生成更多粒子（豪华效果）
-    for (let i = 0; i < 80; i++) {
+    // 移动端减少粒子数量：从80个降到40个
+    const particleCount = isMobile ? 40 : 80;
+    for (let i = 0; i < particleCount; i++) {
         fireworks.push(new FireworkParticle(x, y));
+    }
+    // 超出最大粒子数，直接截断旧粒子（强制清理）
+    if (fireworks.length > MAX_PARTICLES) {
+        fireworks = fireworks.slice(-MAX_PARTICLES);
     }
 }
 
-// 自动生成烟花（频率可调）
+// 自动生成烟花：移动端降低频率（从800ms→1200ms）
+const autoFireworkInterval = isMobile ? 1200 : 800;
 setInterval(() => {
     createFirework(Math.random() * w, Math.random() * h * 0.6);
-}, 800);
+}, autoFireworkInterval);
 
-// 动画循环
-function animateFireworks() {
-    // 半透明遮罩，保留烟花轨迹
-    ctx.fillStyle = "rgba(0,0,0,0.15)";
+// 动画循环（优化渲染：减少画布重绘消耗）
+let lastFrameTime = 0;
+// 移动端限制帧率（60→30帧，降低CPU消耗）
+const TARGET_FPS = isMobile ? 30 : 60;
+const FRAME_INTERVAL = 1000 / TARGET_FPS;
+
+function animateFireworks(timestamp) {
+    // 帧率节流：只在达到目标间隔时渲染
+    if (timestamp - lastFrameTime < FRAME_INTERVAL) {
+        requestAnimationFrame(animateFireworks);
+        return;
+    }
+    lastFrameTime = timestamp;
+
+    // 移动端降低遮罩不透明度，减少合成消耗
+    ctx.fillStyle = isMobile ? "rgba(0,0,0,0.2)" : "rgba(0,0,0,0.15)";
     ctx.fillRect(0, 0, w, h);
     
-    // 更新并绘制所有粒子
+    // 反向遍历+批量清理（比正向遍历快，减少数组操作）
     for (let i = fireworks.length - 1; i >= 0; i--) {
         const p = fireworks[i];
         p.update();
         p.draw();
-        // 移除透明粒子
-        if (p.alpha <= 0) fireworks.splice(i, 1);
+        if (p.alpha <= 0) {
+            fireworks.splice(i, 1); // 立即移除透明粒子
+        }
     }
     requestAnimationFrame(animateFireworks);
 }
-animateFireworks(); // 启动烟花动画
+animateFireworks(0); // 启动烟花动画
 
 // ========== 点击/触摸特效（小烟花+爱心） ==========
 function createClickEffect(x, y) {
@@ -217,4 +239,5 @@ function handleInteraction(e) {
 
 // 绑定点击/触摸事件
 document.addEventListener('click', handleInteraction);
+
 document.addEventListener('touchstart', handleInteraction, {passive: true});
